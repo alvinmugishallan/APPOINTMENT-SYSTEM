@@ -247,17 +247,12 @@ DELIMITER //
 CREATE PROCEDURE sp_book_appointment(
     IN p_patient_id INT,
     IN p_doctor_id INT,
-    IN p_receptionist_id INT,
     IN p_date DATE,
     IN p_time TIME,
-    IN p_amount DECIMAL(10,2),
-    IN p_payment_method VARCHAR(30),
-    IN p_insurance_status VARCHAR(20)
+    IN p_amount DECIMAL(10,2)
 )
 BEGIN
     DECLARE v_appt_id INT;
-    DECLARE v_pay_id INT;
-    DECLARE v_avail_count INT;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -267,36 +262,13 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT COUNT(*) INTO v_avail_count
-    FROM availability
-    WHERE doctor_id = p_doctor_id
-      AND available_date = p_date
-      AND p_time BETWEEN start_time AND end_time
-      AND availability_status = 'Available';
-
-    IF v_avail_count = 0 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Doctor is not available at the specified date and time.';
-    END IF;
-
-    INSERT INTO appointment (patient_id, doctor_id, receptionist_id, appointment_date, appointment_time, status)
-    VALUES (p_patient_id, p_doctor_id, p_receptionist_id, p_date, p_time, 'Confirmed');
+    INSERT INTO appointment (patient_id, doctor_id, appointment_date, appointment_time, status)
+    VALUES (p_patient_id, p_doctor_id, p_date, p_time, 'Confirmed');
 
     SET v_appt_id = LAST_INSERT_ID();
 
-    INSERT INTO payment (patient_id, appointment_id, amount, payment_method, payment_date, insurance_status)
-    VALUES (p_patient_id, v_appt_id, p_amount, p_payment_method, CURDATE(), p_insurance_status);
-
-    SET v_pay_id = LAST_INSERT_ID();
-
-    INSERT INTO confirmation (person_id, appointment_id, payment_id, confirmation_type, status, created_at)
-    VALUES (p_patient_id, v_appt_id, v_pay_id, 'Appointment & Payment Confirmation', 'Confirmed', NOW());
-
-    UPDATE availability
-    SET availability_status = 'Booked'
-    WHERE doctor_id = p_doctor_id
-      AND available_date = p_date
-      AND p_time BETWEEN start_time AND end_time;
+    INSERT INTO payment (patient_id, appointment_id, amount)
+    VALUES (p_patient_id, v_appt_id, p_amount);
 
     COMMIT;
 END //
@@ -467,3 +439,12 @@ call sp_book_appointment(2, 1, 6, '2025-09-08', '09:00:00', 50000.00, 'Cash', 'i
 call sp_
 show triggers;
 show procedure status;
+
+show triggers;
+
+
+insert into appointment(`appointment_id`, `patient_id`, `doctor_id`, `receptionist_id`, `appointment_date`, `appointment_time`, `status`) VALUES 
+(21,2,1,6,'2025-09-08','09:00:00','Confirmed');
+
+select*from doctor;
+call sp_get_doctor_daily_schedule(1, '2025-09-08');
